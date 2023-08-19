@@ -1,4 +1,4 @@
 package com.example.cameraxapp
 
-class SelectImageActivity {
+class ResultOcrFragment {
 }
