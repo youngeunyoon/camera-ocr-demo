@@ -30,7 +30,6 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 class CameraFragment : Fragment() {
-
     private lateinit var binding: FragmentCameraBinding
 
     private var imageCapture: ImageCapture? = null
@@ -102,22 +101,13 @@ class CameraFragment : Fragment() {
 
                 override fun onImageSaved(output: ImageCapture.OutputFileResults){
                     val msg = "Photo capture succeeded: ${output.savedUri}"
-                    Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+//                    Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
                     Log.d(TAG, msg)
-
-//                    // Navigate to ImageDisplayFragment with the saved image URI
-//                    val newFragment = SelectImageFragment.newInstance(output.savedUri!!)
-//                    val transaction = parentFragmentManager.beginTransaction()
-//
-//                    transaction.replace(R.id.fragmentContainerView, newFragment)  // Replace 'your_fragment_container' with your fragment's container ID
-//                    transaction.addToBackStack(null)
-//                    transaction.commit()
 
                     output.savedUri?.let { savedUri ->
                         val selectImageFragment = SelectImageFragment.newInstance(savedUri)
                         parentFragmentManager.beginTransaction()
                             .replace(R.id.fragmentContainerView, selectImageFragment)
-//                            .addToBackStack(null)
                             .commit()
                     }
                 }
@@ -216,7 +206,6 @@ class CameraFragment : Fragment() {
                 val selectImageFragment = SelectImageFragment.newInstance(selectedImageUri)
                 parentFragmentManager.beginTransaction()
                     .replace(R.id.fragmentContainerView, selectImageFragment)
-//                    .addToBackStack(null)
                     .commit()
             }
         }

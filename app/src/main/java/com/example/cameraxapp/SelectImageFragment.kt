@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -11,6 +12,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import androidx.exifinterface.media.ExifInterface
 import androidx.fragment.app.Fragment
 import com.example.cameraxapp.databinding.FragmentSelectImageBinding
 import com.google.mlkit.vision.common.InputImage
@@ -23,10 +25,6 @@ import java.io.InputStream
 class SelectImageFragment : Fragment() {
     private lateinit var binding: FragmentSelectImageBinding
     private var imagePath: Uri? = null
-
-//    companion object {
-//        const val REQUEST_CODE = 2
-//    }
 
     companion object {
         private const val ARG_IMAGE_PATH = "imagePath"
@@ -41,7 +39,6 @@ class SelectImageFragment : Fragment() {
         }
     }
 
-    private lateinit var imageView: ImageView
     private var uri: Uri? = null
     private var bitmap: Bitmap? = null
     private var image: InputImage? = null
@@ -59,19 +56,11 @@ class SelectImageFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-//        val binding = inflater.inflate(R.layout.fragment_select_image, container, false)
-//        val imageView: ImageView = binding.findViewById(R.id.imageView)
-//
-//        imagePath?.let {
-//            imageView.setImageURI(it)
-//        }
-//
-//        return binding
-
         binding = FragmentSelectImageBinding.inflate(inflater)
 
         imagePath?.let {
             binding.imageView.setImageURI(it)
+            setImage(it)
         }
 
         return binding.root
@@ -80,24 +69,8 @@ class SelectImageFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        imageView = view.findViewById(R.id.imageView)
-//        textInfo = view.findViewById(R.id.text_info)
         recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
-//        val btnGetImage: Button = view.findViewById(R.id.btn_get_image)
-//        btnGetImage.setOnClickListener {
-//            val intent = Intent(Intent.ACTION_PICK)
-//            intent.type = MediaStore.Images.Media.CONTENT_TYPE
-//            startActivityForResult(intent, ResultOcrFragment.REQUEST_CODE)
-//        }
-//
-//        val btnDetectionImage: Button = view.findViewById(R.id.btn_detection_image)
-//        btnDetectionImage.setOnClickListener { textRecognition(recognizer) }
-
-//        val buttonOcr: Button = view.findViewById(R.id.ocrButton)
-//        buttonOcr.setOnClickListener {
-//            textRecognition(recognizer)
-//        }
         binding.ocrButton.setOnClickListener {
             textRecognition(recognizer)
         }
@@ -105,14 +78,12 @@ class SelectImageFragment : Fragment() {
         binding.retryButton.setOnClickListener {
             parentFragmentManager.beginTransaction()
                 .replace(R.id.fragmentContainerView, CameraFragment())
-//                .addToBackStack(null)
                 .commit()
         }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-//        if (requestCode == REQUEST_CODE && resultCode == Activity.RESULT_OK) {
         if (requestCode == 2 && resultCode == Activity.RESULT_OK) {
             uri = data?.data
             uri?.let { setImage(it) }
@@ -123,7 +94,8 @@ class SelectImageFragment : Fragment() {
         try {
             val `in`: InputStream? = requireActivity().contentResolver.openInputStream(uri)
             bitmap = BitmapFactory.decodeStream(`in`)
-            imageView.setImageBitmap(bitmap)
+            bitmap = rotateBitmapIfNeeded(bitmap!!, uri)
+            binding.imageView.setImageBitmap(bitmap)
 
             bitmap?.let {
                 image = InputImage.fromBitmap(it, 0)
@@ -134,29 +106,40 @@ class SelectImageFragment : Fragment() {
         }
     }
 
+    private fun rotateBitmapIfNeeded(bitmap: Bitmap, uri: Uri): Bitmap {
+        val exif = ExifInterface(requireActivity().contentResolver.openInputStream(uri)!!)
+        val orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+
+        val matrix = Matrix()
+
+        when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+            ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+        }
+
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    }
+
     private fun textRecognition(recognizer: TextRecognizer) {
         image?.let {
             recognizer.process(it)
                 .addOnSuccessListener { visionText ->
                     Log.e("텍스트 인식", "성공")
                     val resultText = visionText.text
-//                    textInfo.text = resultText
-                    val resultFragment = ResultOcrFragment.newInstance(resultText)
-                    // 코드로 프래그먼트 교체
+                    val resultFragment = ResultOcrFragment.newInstance(resultText, imagePath!!)
+                    // 프래그먼트 교체
                     parentFragmentManager.beginTransaction()
                         .replace(R.id.fragmentContainerView, resultFragment)
-//                        .addToBackStack(null)
                         .commit()
                 }
                 .addOnFailureListener { e ->
                     Log.e("텍스트 인식", "실패: ${e.message}")
                     val resultText = "텍스트 인식 실패"
-//                    textInfo.text = resultText
-                    val resultFragment = ResultOcrFragment.newInstance(resultText)
-                    // 코드로 프래그먼트 교체
+                    val resultFragment = ResultOcrFragment.newInstance(resultText, imagePath!!)
+                    // 프래그먼트 교체
                     parentFragmentManager.beginTransaction()
                         .replace(R.id.fragmentContainerView, resultFragment)
-//                        .addToBackStack(null)
                         .commit()
                 }
         }
